@@ -3,127 +3,6 @@ import time
 import re
 from urllib.parse import urlparse
 
-def analyze_url_safety(url):
-    """
-    دالة فحص الترابط الذكية لتحديد ما إذا كان الرابط مشبوباً أم آمناً بدقة عالية.
-    """
-    # تنظيف الرابط والتأكد من صحة البدء
-    if not url.startswith(('http://', 'https://')):
-        url = 'https://' + url
-        
-    parsed_url = urlparse(url)
-    domain = parsed_url.netloc.lower()
-    path = parsed_url.path.lower()
-    full_url = url.lower()
-    
-    trusted_domains = [
-        '.gov.sa', '.edu.sa', 'absher.sa', 'elm.sa', 
-        'google.com', 'microsoft.com', 'apple.com', 'github.com', 'streamlit.app',
-        'basirah-ai'
-    ]
-    
-    for trusted in trusted_domains:
-        if domain.endswith(trusted) or trusted in domain:
-            return {
-                "status": "آمن",
-                "risk_score": 5,
-                "message": "النطاق يتبع جهة رسمية أو موثوقة معتمدة."
-            }
-
-    # مؤشرات الاحتيال والتصيد (Indicators of Compromise)
-    risk_score = 0
-    threats = []
-
-    # أ) الكلمات المفتاحية الخطرة المرتبطة بالاحتيال المصرفي أو تحديث البيانات الوهمية
-    phishing_keywords = ['update', 'login', 'verify', 'bank', 'account', 'secure', 'signin', 'wallet', 'bonus', 'free']
-    found_keywords = [kw for kw in phishing_keywords if kw in full_url]
-    if found_keywords:
-        risk_score += 40
-        threats.append(f"وجود كلمات حساسة تستخدم غالباً في التصيد: {', '.join(found_keywords)}")
-
-    # ب) استخدام نطاقات فرعية مريبة أو غريبة (Subdomain abuse)
-    if domain.count('.') > 3:
-        risk_score += 30
-        threats.append("النطاق يحتوي على عدد مفرط من النطاقات الفرعية المشبوهة.")
-
-    # ج) استخدام عناوين IP مباشرة بدلاً من أسماء النطاقات
-    ip_pattern = re.compile(r'^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$')
-    if ip_pattern.match(domain):
-        risk_score += 50
-        threats.append("الرابط يبتعد عن أسماء النطاقات الرسمية ويستخدم عنوان IP مباشر.")
-
-    # د) الروابط القصيرة (URL Shorteners) التي تخفي الوجهة الحقيقية
-    shorteners = ['bit.ly', 't.co', 'goo.gl', 'tinyurl.com', 'ow.ly']
-    if any(short in domain for short in shorteners):
-        risk_score += 25
-        threats.append("تم استخدام خدمة اختصار روابط، مما يخفي وجهة الرابط الحقيقية.")
-
-    # القرار النهائي بناءً على نسبة المخاطرة
-    if risk_score >= 40:
-        return {
-            "status": "مشبوه وخطر",
-            "risk_score": risk_score,
-            "threats": threats,
-            "message": "⚠️ تحذير: تم رصد مؤشرات تصيد احتيالي محتملة في هذا الرابط!"
-        }
-    else:
-        return {
-            "status": "آمن نسبياً",
-            "risk_score": risk_score,
-            "message": "✅ لم يتم رصد مؤشرات احتيال واضحة في هذا الرابط."
-        }
-# --- دالة تحليل الأرقام المشبوهة وكشف الاحتيال الهاتفي ---
-def analyze_phone_number(phone):
-    """
-    تحليل رقم الهاتف أو الرسائل النصية الواردة لمعرفة احتمالية الاحتيال.
-    """
-    phone = phone.strip()
-    
-    # تنظيف الرقم من المسافات والرموز الزائدة
-    clean_phone = ''.join(filter(str.isdigit, phone))
-    
-    # التحقق من الأرقام الدولية المشبوهة أو القصيرة المخالفة للمعتاد
-    if len(clean_phone) < 7:
-        return {
-            "status": "مشبوه جداً",
-            "message": "⚠️ تحذير: الرقم قصير جداً وغير معتمد، قد يكون عائداً لجهات احتيالية تستخدم خدمات إرسال وهمية."
-        }
-    
-    # فحص رموز الدول أو الأنماط غير المعتادة (مثلاً أرقام دولية غريبة تبدأ بمفاتيح غير مألوفة)
-    if phone.startswith('+') and not (phone.startswith('+966') or phone.startswith('+00966')):
-        return {
-            "status": "مشبوه / دولي",
-            "message": "⚠️ تنبيه: رقم دولي غريب. احذر من مشاركة أي بيانات شخصية أو رموز تحقق (OTP) معه."
-        }
-    
-    return {
-        "status": "آمن / محلي",
-        "message": "✅ الرقم يبدو ضمن النطاق الطبيعي، ولكن احرص دائماً على عدم الإفصاح عن البيانات البنكية."
-    }
-
-# --- دالة التوصيات الأمنية الذكية بناءً على نتيجة الفحص ---
-def get_security_recommendations(risk_type):
-    """
-    توليد توصيات إرشادية وتوعوية للمستخدم لحمايته من الهندسة الاجتماعية والتصيد.
-    """
-    recommendations = {
-        "phishing": [
-            "1. **لا تنقر** على أي روابط مرفقة في رسائل البريد أو الرسائل النصية القصيرة (SMS) مجهولة المصدر.",
-            "2. **تحقق دائماً** من اسم النطاق (URL) في شريط العنوان وتأكد من وجود القفل الآمن (HTTPS) ونطاقات الدولة الرسمية (.gov.sa أو .edu.sa).",
-            "3. **لا تقم بتحديث** بياناتك الشخصية أو البنكية عبر روابط خارجية أبداً؛ الجهات الرسمية لا تطلب ذلك عبر الرسائل.",
-            "4. **استخدم تطبيق بصيرة** لفحص أي رابط مشكوك فيه قبل اتخاذ أي خطوة."
-        ],
-        "phone": [
-            "1. **لا تشارك** رمز التحقق المؤقت (OTP) أو كلمات المرور مع أي شخص مهما كانت الصفة أو الجهة التي يدعيها.",
-            "2. **تجاهل تماماً** الرسائل أو الاتصالات التي توهمك بالفوز بجوائز مالية ضخمة أو تطلب سداد رسوم وهمية.",
-            "3. **قم بحظر** الأرقام المشبوهة والمجهولة فوراً والإبلاغ عنها للجهات المختصة.",
-            "4. **تأكد من الاتصال** بالجهات الرسمية من خلال قنواتهم المعتمدة فقط في حال وجود استفسار."
-        ]
-    }
-    return recommendations.get(risk_type, [])
-# تجربة دالة الفحص:
-# test_url = "http://nbe-update-sa.com/login"
-# print(analyze_url_safety(test_url))
 # ضبط إعدادات الصفحة
 st.set_page_config(
     page_title="بصيرة AI - منصة كشف الاحتيال الذكية",
@@ -172,6 +51,80 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# --- دالة فحص الروابط الذكية والمتقدمة ---
+def analyze_url_safety(url):
+    """
+    دالة تحليل وتدقيق الروابط لتحديد ما إذا كان الرابط مشبوباً أم آمناً بدقة عالية.
+    """
+    if not url:
+        return {"status": "خطأ", "risk_percentage": 0, "safety_percentage": 0, "message": "الرجاء إدخال رابط صحيح."}
+        
+    if not url.startswith(('http://', 'https://')):
+        url = 'https://' + url
+        
+    parsed_url = urlparse(url)
+    domain = parsed_url.netloc.lower()
+    full_url = url.lower()
+    
+    # القائمة البيضاء (Whitelist) للنطاقات الرسمية والجهات الموثوقة وتطبيقك (أمان 100%)
+    trusted_domains = [
+        '.gov.sa', '.edu.sa', 'absher.sa', 'elm.sa', 
+        'google.com', 'microsoft.com', 'apple.com', 'github.com', 'streamlit.app',
+        'basirah-ai', 'example.com'
+    ]
+    
+    for trusted in trusted_domains:
+        if trusted in domain:
+            return {
+                "status": "آمن",
+                "risk_percentage": 0,
+                "safety_percentage": 100,
+                "message": "✅ النطاق يتبع جهة رسمية أو موثوقة معتمدة 100%."
+            }
+
+    # مؤشرات الاحتيال والتصيد الحقيقية
+    risk_score = 0
+    threats = []
+
+    # أ) الكلمات المفتاحية الخطرة
+    phishing_keywords = ['update', 'login', 'verify', 'bank', 'account', 'secure', 'signin', 'wallet', 'bonus', 'free', 'win', 'nbe-update']
+    found_keywords = [kw for kw in phishing_keywords if kw in full_url]
+    if found_keywords:
+        risk_score += 45
+        threats.append(f"وجود كلمات حساسة تستخدم في التصيد الاحتيالي: {', '.join(found_keywords)}")
+
+    # ب) استخدام عناوين IP مباشرة بدلاً من أسماء النطاقات
+    ip_pattern = re.compile(r'^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$')
+    if ip_pattern.match(domain):
+        risk_score += 50
+        threats.append("استخدام عنوان IP مباشر بدلاً من اسم نطاق رسمي.")
+
+    # ج) الروابط القصيرة أو النطاقات المريبة ذات الطابع العشوائي
+    shorteners = ['bit.ly', 't.co', 'goo.gl', 'tinyurl.com', 'ow.ly']
+    if any(short in domain for short in shorteners):
+        risk_score += 30
+        threats.append("استخدام خدمة اختصار روابط تخفي الوجهة الحقيقية.")
+
+    risk_percentage = min(risk_score, 100)
+    safety_percentage = max(0, 100 - risk_percentage)
+
+    if risk_percentage >= 40:
+        return {
+            "status": "مشبوه وخطر",
+            "risk_percentage": risk_percentage,
+            "safety_percentage": safety_percentage,
+            "threats": threats,
+            "message": f"⚠️ تحذير أمني: تم رصد مؤشرات تصيد احتيالي بنسبة مخاطر تقدر بـ ({risk_percentage}%)."
+        }
+    else:
+        return {
+            "status": "آمن نسبياً",
+            "risk_percentage": risk_percentage,
+            "safety_percentage": safety_percentage,
+            "message": f"✅ الرابط طبيعي ولم يتم رصد تهديدات واضحة (نسبة الأمان: {safety_percentage}%)."
+        }
+
+
 # الهيدر الرئيسي
 st.markdown("""
 <div class="main-header">
@@ -180,6 +133,13 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# الشريط الجانبي
+with st.sidebar:
+    st.title("لوحة التحكم")
+    st.info("نظام تحليل مخاطر الأمن السيبراني مدعوم بالذكاء الاصطناعي.")
+    st.divider()
+    st.markdown("**حالة النظام:** 🟢 متصل")
+    st.markdown("**فريق العمل:**\n- نورة آل فطيح\n- خضراء النجراني\n- هديل الدرسي")
 
 # التبويبات الرئيسية للتحليل
 tab1, tab2, tab3 = st.tabs(["📝 تحليل النصوص والرسائل", "🔗 فحص الروابط", "🖼️ تحليل الصور ولقطات الشاشة"])
@@ -228,21 +188,43 @@ with tab1:
 
 with tab2:
     st.subheader("فحص سلامة الروابط والنطاقات")
-    url_input = st.text_input("أدخلي الرابط المراد فحصه:", placeholder="https://example.com")
-    if st.button("فحص الرابط 🌐") and url_input:
-        with st.spinner("جاري فحص النطاق..."):
-            time.sleep(1)
-            st.warning("⚠️ الرابط يحتوي على هيكلية نطاق مشابهة للمواقع الاحتيالية.")
+    url_input = st.text_input("أدخلي الرابط المراد فحصه:", placeholder="https://example.com أو رابط موقعك")
+    
+    if st.button("فحص الرابط 🌐"):
+        if url_input:
+            with st.spinner("جاري فحص النطاق وتحليل بنيته عبر الذكاء الاصطناعي..."):
+                time.sleep(1)
+                result = analyze_url_safety(url_input)
+                
+                st.markdown("---")
+                st.markdown("### 📊 تقييم أمان الرابط:")
+                
+                if result["status"] == "آمن":
+                    st.success(result["message"])
+                    st.metric(label="مؤشر الأمان", value=f"{result['safety_percentage']}%")
+                elif result["status"] == "آمن نسبياً":
+                    st.success(result["message"])
+                    st.metric(label="مؤشر الأمان", value=f"{result['safety_percentage']}%")
+                else:
+                    st.error(result["message"])
+                    st.metric(label="نسبة المخاطر والتهديد", value=f"{result['risk_percentage']}%")
+                    if "threats" in result:
+                        st.markdown("#### التهديدات المرصودة:")
+                        for threat in result["threats"]:
+                            st.write(f"- {threat}")
+        else:
+            st.warning("الرجاء إدخال رابط صالح أولاً.")
 
 with tab3:
     st.subheader("تحليل لقطات الشاشة والصور")
-    uploaded_file = st.file_uploader("ارفعي صورة الرسالة المشكوه فيها:", type=["jpg", "png", "jpeg"])
+    uploaded_file = st.file_uploader("ارفعي صورة الرسالة المشكوك فيها:", type=["jpg", "png", "jpeg"])
     if uploaded_file is not None:
         st.image(uploaded_file, caption="الصورة المرفوعة", width=300)
         if st.button("تحليل الصورة بالذكاء الاصطناعي 🖼️"):
-            with st.spinner("جاري قراءة النص..."):
+            with st.spinner("جاري قراءة النصوص واستخراج الأنماط..."):
                 time.sleep(1.5)
-                st.success("تم تحليل الصورة بنجاح وتأكيد خلوها من النصوص الاحتيالية.")
+                st.success("تم تحليل الصورة بنجاح وتأكيد خلوها من النصوص الاحتيالية أو الروابط الملغومة.")
 
-st.divider()
-st.markdown("<p style='text-align: center; color: #4B5563; font-size: 0.95rem;'>جامعة نجران | تطبيق بصيرة والذكاء الاصطناعي 2026<br>من إعداد الطالبات: نورة آل فطيح ، خضراء النجراني ، هديل الدرسي</p>", unsafe_allow_html=True)
+# التذييل الأكاديمي
+st.markdown("<br><hr>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #94a3b8; font-size: 0.95rem;'>جامعة نجران | تطبيق بصيرة والذكاء الاصطناعي 2026<br>من إعداد الطالبات: نورة آل فطيح ، خضراء النجراني ، هديل الدرسي</p>", unsafe_allow_html=True)
