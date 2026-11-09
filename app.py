@@ -16,10 +16,10 @@ def analyze_url_safety(url):
     path = parsed_url.path.lower()
     full_url = url.lower()
     
-    # 1. القائمة البيضاء (Whitelist) للنطاقات الرسمية والحكومية الموثوقة 100%
     trusted_domains = [
         '.gov.sa', '.edu.sa', 'absher.sa', 'elm.sa', 
-        'google.com', 'microsoft.com', 'apple.com', 'github.com', 'streamlit.app'
+        'google.com', 'microsoft.com', 'apple.com', 'github.com', 'streamlit.app',
+        'basirah-ai'
     ]
     
     for trusted in trusted_domains:
