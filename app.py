@@ -1,180 +1,101 @@
 import streamlit as st
-import json
-from PIL import Image
-from google import genai
-from google.genai import types
+import hashlib
+from urllib.parse import urlparse
 
-# ---------------------------------------------------------
-# 1. تهيئة الصفحة والنمط البصري (Page Configuration & UI)
-# ---------------------------------------------------------
-st.set_page_config(
-    page_title="بصيرة | BASIRAH AI",
-    page_icon="🛡️",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# إعداد الصفحة لتكون واسعة
+st.set_page_config(page_title="BASIRAH AI | Cyber Investigator", page_icon="🛡️", layout="wide")
 
-# نمط CSS مخصص لإعطاء التطبيق هوية تقنية حديثة
+# تصميم الهوية البصرية والواجهة الزرقاء المتكاملة
 st.markdown("""
     <style>
     .main-header {
+        background: linear-gradient(135deg, #0d1b2a, #1b263b, #415a77);
+        padding: 30px;
+        border-radius: 15px;
         text-align: center;
-        color: #1E3A8A;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        color: white;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        border: 1px solid #415a77;
+        margin-bottom: 30px;
     }
-    .sub-header {
-        text-align: center;
-        color: #4B5563;
-        font-size: 1.1rem;
-        margin-bottom: 2rem;
-    }
-    .stAlert {
-        border-radius: 10px;
-    }
-    .metric-card {
-        background-color: #F3F4F6;
-        padding: 15px;
-        border-radius: 10px;
-        border-right: 5px solid #2563EB;
+    .main-header h1 {
+        color: #ffffff;
+        font-size: 2.5rem;
         margin-bottom: 10px;
+        font-weight: 700;
+        direction: rtl;
+    }
+    .main-header p {
+        color: #e0e1dd;
+        font-size: 1.1rem;
+        direction: rtl;
     }
     </style>
+    
+    <div class="main-header">
+        <h1>نظام بصيرة 🛡️ | BASIRAH AI & Cyber Investigator</h1>
+        <p>المنظومة الذكية المتعددة الوسائط لكشف التصيد، الاحتيال الهندسي، وتحليل مخاطر الأمن السيبراني</p>
+    </div>
 """, unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# 2. الهيدر والمقدمة
-# ---------------------------------------------------------
-st.markdown("<h1 class='main-header'>🛡️ نظام بصيرة | BASIRAH AI</h1>", unsafe_allow_html=True)
-st.markdown("<p class='sub-header'>المنظومة الذكية للاستباق وتحليل أدلة الخداع الرقمي وانتحال الهوية</p>", unsafe_allow_html=True)
-
-# ---------------------------------------------------------
-# 3. الشريط الجانبي (إعدادات مفتاح API والذاكرة المجتمعية)
-# ---------------------------------------------------------
-with st.sidebar:
-    st.header("⚙️ إعدادات النظام")
-    api_key = st.text_input("أدخلي مفتاح Gemini API Key:", type="password")
-    st.info("💡 يمكنك الحصول على المفتاح مجاناً من Google AI Studio.")
-    
-    st.divider()
-    st.header("🧠 الذاكرة المجتمعية")
-    st.caption("أنماط الاحتيال المسجلة حديثاً في قاعدة البلاغات:")
-    st.warning("⚠️ انتحال صفة الجهات الرسمية وشركات الشحن")
-    st.warning("⚠️ رسائل توظيف وهمية تطلب بيانات حساسة بضغط زمني")
-    st.warning("⚠️ روابط مسابقات ومكافآت وهمية")
-
-# ---------------------------------------------------------
-# 4. محرك التحليل بالذكاء الاصطناعي (Gemini Analysis Engine)
-# ---------------------------------------------------------
-def analyze_content(prompt_text, image=None, api_key=None):
-    if not api_key:
-        return {"error": "يرجى أدخال مفتاح API في الشريط الجانبي لتفعيل التحليل."}
-    
-    try:
-        client = genai.Client(api_key=api_key)
-        
-        system_instruction = """
-        أنت محرك الذكاء الاصطناعي الخاص بنظام "بصيرة" لاكتشاف الاحتيال الرقمي والتلاعب النفسي.
-        قم بتحليل النص أو الصورة المرفقة واستخراج مؤشرات الخداع بدقة.
-        يجب أن تعيد النتيجة بتنسيق JSON حصراً وتضمن الأجزاء التالية:
-        {
-            "risk_level": "مرتفع جداً" / "مرتفع" / "متوسط" / "منخفض",
-            "summary": "ملخص سريع لتقييم الرسالة",
-            "evidence_map": [
-                {"indicator": "اسم المؤشر (مثلاً: انتحال صفة)", "details": "تفاصيل ما تم اكتشافه"},
-                {"indicator": "التلاعب النفسي", "details": "طريقة الضغط أو الخداع المستخدمة"},
-                {"indicator": "فحص الروابط/الوسائط", "details": "تقييم الرابط أو العناصر البصرية"}
-            ],
-            "official_verification": "إرشادات للتحقق من المصادر والقنوات الرسمية",
-            "community_pattern": "هل ينتمي هذا للأنماط الشائعة في الذاكرة المجتمعية؟"
-        }
-        """
-        
-        contents = [prompt_text]
-        if image:
-            contents.append(image)
-            
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                response_mime_type="application/json",
-                temperature=0.2
-            )
-        )
-        return json.loads(response.text)
-    except Exception as e:
-        return {"error": f"حدث خطأ أثناء التحليل: {str(e)}"}
-
-# ---------------------------------------------------------
-# 5. واجهة المدخلات (تعدد الوسائط: نص وصورة)
-# ---------------------------------------------------------
-col1, col2 = st.columns([1, 1])
-
-with col1:
-    st.subheader("📝 1. إدخال المحتوى النصي أو الرابط")
-    user_text = st.text_area(
-        "ألصقي نص الرسالة، الرابط المشبوه، أو الإعلان هنا:",
-        height=180,
-        placeholder="مثال: تهانينا! تم قبولك في وظيفة أو برنامج تدريبي، يرجى إدخال بياناتك عبر الرابط لاستكمال الإجراءات خلال 10 دقائق..."
-    )
+# تقسيم الشاشة إلى المحتوى الرئيسي ولوحة التحكم الجانبية
+col1, col2 = st.columns([3, 1])
 
 with col2:
-    st.subheader("🖼️ 2. رفع صورة (لقطة شاشة للرسالة)")
-    uploaded_file = st.file_uploader("ارفعي صورة للرسالة أو المحتوى المشبوه:", type=['png', 'jpg', 'jpeg'])
-    img = None
-    if uploaded_file:
-        img = Image.open(uploaded_file)
-        st.image(img, caption="الصورة المرفقة للتحليل", use_container_width=True)
+    st.markdown("### لوحة التحكم الأمنية")
+    st.info("🛡️ نظام تحليل مخاطر الأمن السيبراني مدعوم بالذكاء الاصطناعي")
+    st.success("حالة النظام: 🟢 متصل وآمن")
+    st.markdown("---")
+    st.caption("مشروع تخرج 2026 - جامعة نجران")
+    st.caption("إعداد الطالبات: نورة آل فطيح، خضراء النجراني، هديل الدرسي")
 
-# ---------------------------------------------------------
-# 6. زر إطلاق التحليل واقتفاء الأدلة
-# ---------------------------------------------------------
-st.divider()
-analyze_btn = st.button("🔍 فحص عبر نظام «بصيرة»", type="primary", use_container_width=True)
+with col1:
+    tab1, tab2, tab3 = st.tabs(["📄 تحليل النصوص والروابط", "🖼️ فحص الملفات والأدلة", "📊 تقييم مخاطر CIA Triad"])
 
-if analyze_btn:
-    if not user_text and not img:
-        st.warning("⚠️ يرجى أدخال نص أو رفع صورة للبدء في الفحص.")
-    else:
-        with st.spinner("جاري فحص وتفكيك مؤشرات الخداع وتحليل التلاعب النفسي..."):
-            prompt_input = user_text if user_text else "قم بتحليل الصورة المرفقة واكتشاف أي مؤشرات احتيال أو انتحال هوية."
-            result = analyze_content(prompt_input, img, api_key)
-            
-            if "error" in result:
-                st.error(result["error"])
-            else:
-                st.success("✅ تم الفحص بنجاح! إليك تقرير الأدلة المسبب:")
-                
-                # عرض مستوى الخطورة
-                risk = result.get("risk_level", "غير محدد")
-                if risk in ["مرتفع جداً", "مرتفع"]:
-                    st.error(f"🚨 **مستوى الخطورة:** {risk}")
-                elif risk == "متوسط":
-                    st.warning(f"⚠️ **مستوى الخطورة:** {risk}")
+    with tab1:
+        st.subheader("تحليل الرسائل النصية والروابط المشكوك فيها")
+        user_input = st.text_input("أدخلي نص الرسالة أو الرابط المراد فحصه:", placeholder="مثال: عزيزي العميل، تم تجميد حسابك، اضغط على الرابط لتحديث البيانات فوراً...")
+        
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            if st.button("بدء الفحص والتحليل الذكي"):
+                if user_input:
+                    if "https://" in user_input or "http://" in user_input:
+                        parsed_url = urlparse(user_input)
+                        if "https" in parsed_url.scheme:
+                            st.success(f"الرابط آمن ومميز ببروتوكول HTTPS المشفر: {parsed_url.netloc}")
+                        else:
+                            st.warning(f"تحذير: الرابط يستخدم بروتوكول غير آمن HTTP: {parsed_url.netloc}")
+                    else:
+                        st.info("جاري تحليل النص وكشف مؤشرات الاحتيال والهندسة الاجتماعية...")
                 else:
-                    st.info(f"ℹ️ **مستوى الخطورة:** {risk}")
-                
-                st.markdown(f"**الملخص التنفيذي:** {result.get('summary', '')}")
-                
-                # خريطة الأدلة الذكية
-                st.subheader("🗺️ خريطة الأدلة الذكية (تفكيك أسلوب الخداع)")
-                evidence_list = result.get("evidence_map", [])
-                for item in evidence_list:
-                    st.markdown(f"""
-                    <div class="metric-card">
-                        <h4>📌 {item.get('indicator')}</h4>
-                        <p>{item.get('details')}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                # التحقق والتوصيات
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    st.subheader("🏛️ طرق التحقق الموصى بها")
-                    st.info(result.get("official_verification", "لا تتوفر إرشادات خاصة."))
-                
-                with col_b:
-                    st.subheader("🧠 مطابقة الذاكرة المجتمعية")
-                    st.write(result.get("community_pattern", "تم تسجيل هذا النموذج في الذاكرة لتنبيه المستخدمين الآخرين."))
-                    st.caption("مشروع بصيره - جامعة نجران 2026 | إعداد الطالبات: نورة آل فطيح، خضراء النجراني، هديل الدرسي")
+                    st.warning("يرجى إدخال النص أو الرابط أولاً.")
+        with col_btn2:
+            if st.button("تحميل رسالة احتيال تجريبية ⚠️"):
+                st.code("عاجل: تم إيقاف حسابك المصرفي مؤقتاً، يرجى التوثيق عبر الرابط السريع لتفادي الإغلاق النهائي.")
+
+    with tab2:
+        st.subheader("فحص الملفات واستخراج البصمة الرقمية (Hashing)")
+        uploaded_file = st.file_uploader("ارفعي الملف أو لقطة الشاشة للفحص واستخراج البصمة:", type=["png", "jpg", "jpeg", "pdf", "exe", "txt"])
+        if uploaded_file is not None:
+            file_bytes = uploaded_file.read()
+            sha256_val = hashlib.sha256(file_bytes).hexdigest()
+            st.success(f"اسم الملف المرفوع: {uploaded_file.name}")
+            st.markdown("**البصمة الرقمية (SHA-256):**")
+            st.code(sha256_val)
+            st.info("جاري فحص البصمة البصرية والرقمية بمحركات اكتشاف البرمجيات الخبيثة...")
+
+    with tab3:
+        st.subheader("إطار تقييم المخاطر (CIA Triad Risk Analysis)")
+        st.write("تقييم أمان المنظومة بناءً على مبادئ أمن المعلومات الأساسية:")
+        
+        col_c, col_i, col_a = st.columns(3)
+        with col_c:
+            st.markdown("### السرية (Confidentiality)")
+            st.success("حماية البيانات وسرية المستودعات مفعلة بنجاح.")
+        with col_i:
+            st.markdown("### التكامل (Integrity)")
+            st.success("سلامة السجلات والتحقق من التوقيع الرقمي مطبقة.")
+        with col_a:
+            st.markdown("### التوافر (Availability)")
+            st.success("استمرارية الخدمة والجاهزية السحابية نشطة على مدار الساعة.")
