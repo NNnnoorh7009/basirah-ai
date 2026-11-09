@@ -1,6 +1,129 @@
 import streamlit as st
 import time
+import re
+from urllib.parse import urlparse
 
+def analyze_url_safety(url):
+    """
+    دالة فحص الترابط الذكية لتحديد ما إذا كان الرابط مشبوباً أم آمناً بدقة عالية.
+    """
+    # تنظيف الرابط والتأكد من صحة البدء
+    if not url.startswith(('http://', 'https://')):
+        url = 'https://' + url
+        
+    parsed_url = urlparse(url)
+    domain = parsed_url.netloc.lower()
+    path = parsed_url.path.lower()
+    full_url = url.lower()
+    
+    # 1. القائمة البيضاء (Whitelist) للنطاقات الرسمية والحكومية الموثوقة 100%
+    trusted_domains = [
+        '.gov.sa', '.edu.sa', 'absher.sa', 'elm.sa', 
+        'google.com', 'microsoft.com', 'apple.com', 'github.com', 'streamlit.app'
+    ]
+    
+    for trusted in trusted_domains:
+        if domain.endswith(trusted) or trusted in domain:
+            return {
+                "status": "آمن",
+                "risk_score": 5,
+                "message": "النطاق يتبع جهة رسمية أو موثوقة معتمدة."
+            }
+
+    # مؤشرات الاحتيال والتصيد (Indicators of Compromise)
+    risk_score = 0
+    threats = []
+
+    # أ) الكلمات المفتاحية الخطرة المرتبطة بالاحتيال المصرفي أو تحديث البيانات الوهمية
+    phishing_keywords = ['update', 'login', 'verify', 'bank', 'account', 'secure', 'signin', 'wallet', 'bonus', 'free']
+    found_keywords = [kw for kw in phishing_keywords if kw in full_url]
+    if found_keywords:
+        risk_score += 40
+        threats.append(f"وجود كلمات حساسة تستخدم غالباً في التصيد: {', '.join(found_keywords)}")
+
+    # ب) استخدام نطاقات فرعية مريبة أو غريبة (Subdomain abuse)
+    if domain.count('.') > 3:
+        risk_score += 30
+        threats.append("النطاق يحتوي على عدد مفرط من النطاقات الفرعية المشبوهة.")
+
+    # ج) استخدام عناوين IP مباشرة بدلاً من أسماء النطاقات
+    ip_pattern = re.compile(r'^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$')
+    if ip_pattern.match(domain):
+        risk_score += 50
+        threats.append("الرابط يبتعد عن أسماء النطاقات الرسمية ويستخدم عنوان IP مباشر.")
+
+    # د) الروابط القصيرة (URL Shorteners) التي تخفي الوجهة الحقيقية
+    shorteners = ['bit.ly', 't.co', 'goo.gl', 'tinyurl.com', 'ow.ly']
+    if any(short in domain for short in shorteners):
+        risk_score += 25
+        threats.append("تم استخدام خدمة اختصار روابط، مما يخفي وجهة الرابط الحقيقية.")
+
+    # القرار النهائي بناءً على نسبة المخاطرة
+    if risk_score >= 40:
+        return {
+            "status": "مشبوه وخطر",
+            "risk_score": risk_score,
+            "threats": threats,
+            "message": "⚠️ تحذير: تم رصد مؤشرات تصيد احتيالي محتملة في هذا الرابط!"
+        }
+    else:
+        return {
+            "status": "آمن نسبياً",
+            "risk_score": risk_score,
+            "message": "✅ لم يتم رصد مؤشرات احتيال واضحة في هذا الرابط."
+        }
+# --- دالة تحليل الأرقام المشبوهة وكشف الاحتيال الهاتفي ---
+def analyze_phone_number(phone):
+    """
+    تحليل رقم الهاتف أو الرسائل النصية الواردة لمعرفة احتمالية الاحتيال.
+    """
+    phone = phone.strip()
+    
+    # تنظيف الرقم من المسافات والرموز الزائدة
+    clean_phone = ''.join(filter(str.isdigit, phone))
+    
+    # التحقق من الأرقام الدولية المشبوهة أو القصيرة المخالفة للمعتاد
+    if len(clean_phone) < 7:
+        return {
+            "status": "مشبوه جداً",
+            "message": "⚠️ تحذير: الرقم قصير جداً وغير معتمد، قد يكون عائداً لجهات احتيالية تستخدم خدمات إرسال وهمية."
+        }
+    
+    # فحص رموز الدول أو الأنماط غير المعتادة (مثلاً أرقام دولية غريبة تبدأ بمفاتيح غير مألوفة)
+    if phone.startswith('+') and not (phone.startswith('+966') or phone.startswith('+00966')):
+        return {
+            "status": "مشبوه / دولي",
+            "message": "⚠️ تنبيه: رقم دولي غريب. احذر من مشاركة أي بيانات شخصية أو رموز تحقق (OTP) معه."
+        }
+    
+    return {
+        "status": "آمن / محلي",
+        "message": "✅ الرقم يبدو ضمن النطاق الطبيعي، ولكن احرص دائماً على عدم الإفصاح عن البيانات البنكية."
+    }
+
+# --- دالة التوصيات الأمنية الذكية بناءً على نتيجة الفحص ---
+def get_security_recommendations(risk_type):
+    """
+    توليد توصيات إرشادية وتوعوية للمستخدم لحمايته من الهندسة الاجتماعية والتصيد.
+    """
+    recommendations = {
+        "phishing": [
+            "1. **لا تنقر** على أي روابط مرفقة في رسائل البريد أو الرسائل النصية القصيرة (SMS) مجهولة المصدر.",
+            "2. **تحقق دائماً** من اسم النطاق (URL) في شريط العنوان وتأكد من وجود القفل الآمن (HTTPS) ونطاقات الدولة الرسمية (.gov.sa أو .edu.sa).",
+            "3. **لا تقم بتحديث** بياناتك الشخصية أو البنكية عبر روابط خارجية أبداً؛ الجهات الرسمية لا تطلب ذلك عبر الرسائل.",
+            "4. **استخدم تطبيق بصيرة** لفحص أي رابط مشكوك فيه قبل اتخاذ أي خطوة."
+        ],
+        "phone": [
+            "1. **لا تشارك** رمز التحقق المؤقت (OTP) أو كلمات المرور مع أي شخص مهما كانت الصفة أو الجهة التي يدعيها.",
+            "2. **تجاهل تماماً** الرسائل أو الاتصالات التي توهمك بالفوز بجوائز مالية ضخمة أو تطلب سداد رسوم وهمية.",
+            "3. **قم بحظر** الأرقام المشبوهة والمجهولة فوراً والإبلاغ عنها للجهات المختصة.",
+            "4. **تأكد من الاتصال** بالجهات الرسمية من خلال قنواتهم المعتمدة فقط في حال وجود استفسار."
+        ]
+    }
+    return recommendations.get(risk_type, [])
+# تجربة دالة الفحص:
+# test_url = "http://nbe-update-sa.com/login"
+# print(analyze_url_safety(test_url))
 # ضبط إعدادات الصفحة
 st.set_page_config(
     page_title="بصيرة AI - منصة كشف الاحتيال الذكية",
